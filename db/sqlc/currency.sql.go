@@ -36,13 +36,13 @@ func (q *Queries) GetAllCurrencies(ctx context.Context) ([]Currency, error) {
 	return items, nil
 }
 
-const getCurrency = `-- name: GetCurrency :one
+const getCurrencyByID = `-- name: GetCurrencyByID :one
 SELECT id, name FROM currencies
 WHERE id = ?
 `
 
-func (q *Queries) GetCurrency(ctx context.Context, id uint64) (Currency, error) {
-	row := q.db.QueryRowContext(ctx, getCurrency, id)
+func (q *Queries) GetCurrencyByID(ctx context.Context, id uint64) (Currency, error) {
+	row := q.db.QueryRowContext(ctx, getCurrencyByID, id)
 	var i Currency
 	err := row.Scan(&i.ID, &i.Name)
 	return i, err

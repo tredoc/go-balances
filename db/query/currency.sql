@@ -1,4 +1,4 @@
--- name: GetCurrency :one
+-- name: GetCurrencyByID :one
 SELECT * FROM currencies
 WHERE id = ?;
 

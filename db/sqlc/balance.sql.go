@@ -41,13 +41,13 @@ func (q *Queries) GetAllBalances(ctx context.Context) ([]Balance, error) {
 	return items, nil
 }
 
-const getBalance = `-- name: GetBalance :one
+const getBalanceByID = `-- name: GetBalanceByID :one
 SELECT id, user_id, currency_id, amount FROM balances
 WHERE id = ?
 `
 
-func (q *Queries) GetBalance(ctx context.Context, id uint64) (Balance, error) {
-	row := q.db.QueryRowContext(ctx, getBalance, id)
+func (q *Queries) GetBalanceByID(ctx context.Context, id uint64) (Balance, error) {
+	row := q.db.QueryRowContext(ctx, getBalanceByID, id)
 	var i Balance
 	err := row.Scan(
 		&i.ID,
@@ -56,4 +56,71 @@ func (q *Queries) GetBalance(ctx context.Context, id uint64) (Balance, error) {
 		&i.Amount,
 	)
 	return i, err
+}
+
+const getBalanceByIDForUpdate = `-- name: GetBalanceByIDForUpdate :one
+SELECT id, user_id, currency_id, amount FROM balances
+WHERE id = ?
+FOR UPDATE
+`
+
+func (q *Queries) GetBalanceByIDForUpdate(ctx context.Context, id uint64) (Balance, error) {
+	row := q.db.QueryRowContext(ctx, getBalanceByIDForUpdate, id)
+	var i Balance
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.CurrencyID,
+		&i.Amount,
+	)
+	return i, err
+}
+
+const getBalancesByUserID = `-- name: GetBalancesByUserID :many
+SELECT id, user_id, currency_id, amount FROM balances
+WHERE user_id = ?
+`
+
+func (q *Queries) GetBalancesByUserID(ctx context.Context, userID uint64) ([]Balance, error) {
+	rows, err := q.db.QueryContext(ctx, getBalancesByUserID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Balance
+	for rows.Next() {
+		var i Balance
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.CurrencyID,
+			&i.Amount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateBalance = `-- name: UpdateBalance :exec
+UPDATE balances
+SET amount = ?
+WHERE id = ?
+`
+
+type UpdateBalanceParams struct {
+	Amount int64
+	ID     uint64
+}
+
+func (q *Queries) UpdateBalance(ctx context.Context, arg UpdateBalanceParams) error {
+	_, err := q.db.ExecContext(ctx, updateBalance, arg.Amount, arg.ID)
+	return err
 }

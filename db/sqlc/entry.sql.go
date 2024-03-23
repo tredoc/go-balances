@@ -9,6 +9,24 @@ import (
 	"context"
 )
 
+const createEntry = `-- name: CreateEntry :execlastid
+INSERT INTO entries (balance_id, amount)
+VALUES (?, ?)
+`
+
+type CreateEntryParams struct {
+	BalanceID uint64
+	Amount    int64
+}
+
+func (q *Queries) CreateEntry(ctx context.Context, arg CreateEntryParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, createEntry, arg.BalanceID, arg.Amount)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
+}
+
 const getAllEntries = `-- name: GetAllEntries :many
 SELECT id, balance_id, amount FROM entries
 `
@@ -36,13 +54,41 @@ func (q *Queries) GetAllEntries(ctx context.Context) ([]Entry, error) {
 	return items, nil
 }
 
-const getEntry = `-- name: GetEntry :one
+const getEntriesByBalanceID = `-- name: GetEntriesByBalanceID :many
+SELECT id, balance_id, amount FROM entries
+WHERE balance_id = ?
+`
+
+func (q *Queries) GetEntriesByBalanceID(ctx context.Context, balanceID uint64) ([]Entry, error) {
+	rows, err := q.db.QueryContext(ctx, getEntriesByBalanceID, balanceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Entry
+	for rows.Next() {
+		var i Entry
+		if err := rows.Scan(&i.ID, &i.BalanceID, &i.Amount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getEntryByID = `-- name: GetEntryByID :one
 SELECT id, balance_id, amount FROM entries
 WHERE id = ?
 `
 
-func (q *Queries) GetEntry(ctx context.Context, id uint64) (Entry, error) {
-	row := q.db.QueryRowContext(ctx, getEntry, id)
+func (q *Queries) GetEntryByID(ctx context.Context, id uint64) (Entry, error) {
+	row := q.db.QueryRowContext(ctx, getEntryByID, id)
 	var i Entry
 	err := row.Scan(&i.ID, &i.BalanceID, &i.Amount)
 	return i, err

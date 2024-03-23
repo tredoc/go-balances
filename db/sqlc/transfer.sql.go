@@ -9,6 +9,25 @@ import (
 	"context"
 )
 
+const createTransfer = `-- name: CreateTransfer :execlastid
+INSERT INTO transfers (from_balance_id, to_balance_id, amount)
+VALUES (?, ?, ?)
+`
+
+type CreateTransferParams struct {
+	FromBalanceID uint64
+	ToBalanceID   uint64
+	Amount        int64
+}
+
+func (q *Queries) CreateTransfer(ctx context.Context, arg CreateTransferParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, createTransfer, arg.FromBalanceID, arg.ToBalanceID, arg.Amount)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
+}
+
 const getAllTransfers = `-- name: GetAllTransfers :many
 SELECT id, from_balance_id, to_balance_id, amount FROM transfers
 `
@@ -41,13 +60,13 @@ func (q *Queries) GetAllTransfers(ctx context.Context) ([]Transfer, error) {
 	return items, nil
 }
 
-const getTransfer = `-- name: GetTransfer :one
+const getTransferByID = `-- name: GetTransferByID :one
 SELECT id, from_balance_id, to_balance_id, amount FROM transfers
 WHERE id = ?
 `
 
-func (q *Queries) GetTransfer(ctx context.Context, id uint64) (Transfer, error) {
-	row := q.db.QueryRowContext(ctx, getTransfer, id)
+func (q *Queries) GetTransferByID(ctx context.Context, id uint64) (Transfer, error) {
+	row := q.db.QueryRowContext(ctx, getTransferByID, id)
 	var i Transfer
 	err := row.Scan(
 		&i.ID,
@@ -56,4 +75,80 @@ func (q *Queries) GetTransfer(ctx context.Context, id uint64) (Transfer, error) 
 		&i.Amount,
 	)
 	return i, err
+}
+
+const getTransfersByAccountID = `-- name: GetTransfersByAccountID :many
+SELECT id, from_balance_id, to_balance_id, amount FROM transfers
+WHERE from_balance_id = ? OR to_balance_id = ?
+`
+
+type GetTransfersByAccountIDParams struct {
+	FromBalanceID uint64
+	ToBalanceID   uint64
+}
+
+func (q *Queries) GetTransfersByAccountID(ctx context.Context, arg GetTransfersByAccountIDParams) ([]Transfer, error) {
+	rows, err := q.db.QueryContext(ctx, getTransfersByAccountID, arg.FromBalanceID, arg.ToBalanceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Transfer
+	for rows.Next() {
+		var i Transfer
+		if err := rows.Scan(
+			&i.ID,
+			&i.FromBalanceID,
+			&i.ToBalanceID,
+			&i.Amount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getTransfersByInAndOutAccountIDs = `-- name: GetTransfersByInAndOutAccountIDs :many
+SELECT id, from_balance_id, to_balance_id, amount FROM transfers
+WHERE from_balance_id = ? AND to_balance_id = ?
+`
+
+type GetTransfersByInAndOutAccountIDsParams struct {
+	FromBalanceID uint64
+	ToBalanceID   uint64
+}
+
+func (q *Queries) GetTransfersByInAndOutAccountIDs(ctx context.Context, arg GetTransfersByInAndOutAccountIDsParams) ([]Transfer, error) {
+	rows, err := q.db.QueryContext(ctx, getTransfersByInAndOutAccountIDs, arg.FromBalanceID, arg.ToBalanceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Transfer
+	for rows.Next() {
+		var i Transfer
+		if err := rows.Scan(
+			&i.ID,
+			&i.FromBalanceID,
+			&i.ToBalanceID,
+			&i.Amount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
