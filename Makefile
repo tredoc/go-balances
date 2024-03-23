@@ -13,9 +13,13 @@ migrate/down:
 	@echo "Migrating down..."
 	@migrate -database "mysql://${DB_USER}:${DB_PASS}@tcp(${DB_HOST}:${DB_PORT})/${DB_NAME}" -path ./db/migrations down
 
+sqlc:
+	@echo "Generating sqlc..."
+	@sqlc generate
+
 test:
 	@echo "Running tests..."
 	@go test -v -cover ./...
 
-.PHONY: compose migrate/up migrate/down test
-.SILENT: compose migrate/up migrate/down test
+.PHONY: compose migrate/up migrate/down sqlc test
+.SILENT: compose migrate/up migrate/down sqlc test
