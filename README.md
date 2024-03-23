@@ -15,7 +15,7 @@ This app is created for testing purposes of production feature using go instead 
 * install `github.com/golang-migrate/migrate` for migrations  
   `go install -tags 'mysql' github.com/golang-migrate/migrate/v4/cmd/migrate@latest`
 * run `make compose` to build images and run containers
-* run `make migrate-up` to apply migrations
+* run `make migrate/up` to apply migrations
 * run `make test` to run tests
 
 ### How to develop
