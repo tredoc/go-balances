@@ -1,0 +1,39 @@
+Table currencies as c {
+  id bigserial [pk]
+  name varchar(100) [not null]
+
+  Indexes {
+    (name) [unique]
+  }
+}
+
+
+Table transfers as t {
+  id bigserial [pk]
+  from_balance_id bigint [ref: > b.id, not null]
+  to_balance_id bigint [ref: > b.id, not null]
+  amount bigint [not null, note: 'can be only positive']
+}
+
+Table balances as b {
+  id bigserial [pk]
+  user_id bigint [ref: > u.id, not null]
+  currency_id bigint [ref: > c.id, not null]
+  amount bigint [default: 0]
+}
+
+Table entries as e {
+  id bigserial [pk]
+  balance_id bigint [ref: > b.id, not null]
+  amount bigint [not null, note: 'can be negative or positive']
+}
+
+
+Table users as u {
+  id bigserial [pk]
+  username varchar(255) [not null]
+
+    Indexes {
+    (username) [unique]
+  }
+}

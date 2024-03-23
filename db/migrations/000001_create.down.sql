@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS transfers;
+
+DROP TABLE IF EXISTS entries;
+
+DROP TABLE IF EXISTS balances;
+
+DROP TABLE IF EXISTS currencies;
+
+DROP TABLE IF EXISTS users;

@@ -1,4 +1,5 @@
 include .env
+export
 
 compose:
 	@echo "Starting docker-compose..."
