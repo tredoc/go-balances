@@ -13,7 +13,7 @@ This app is created for testing purposes of production feature using go instead 
 
 ### How to run
 * install `github.com/golang-migrate/migrate` for migrations
-* run `docker-compose up --build` to build images and run containers
+* run `make compose` to build images and run containers
 * run `make migrate-up` to apply migrations
 * run `make test` to run tests
 
