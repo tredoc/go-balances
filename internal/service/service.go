@@ -26,20 +26,32 @@ func (s *Service) GetBalanceById(id uint64) (db.Balance, error) {
 }
 
 func (s *Service) Deposit(id uint64, amount int64) (*db.Balance, error) {
-	balance, err := s.store.GetBalanceByID(context.Background(), id)
+	if amount <= 0 {
+		return nil, errors.New("amount must be positive")
+	}
+
+	tx, err := s.store.DB.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	qtx := s.store.WithTx(tx)
+
+	balance, err := qtx.GetBalanceByIDForUpdate(context.Background(), id)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = s.store.CreateEntry(context.Background(), db.CreateEntryParams{BalanceID: id, Amount: amount})
+	_, err = qtx.CreateEntry(context.Background(), db.CreateEntryParams{BalanceID: id, Amount: amount})
 
-	err = s.store.UpdateBalance(context.Background(), db.UpdateBalanceParams{ID: id, Amount: balance.Amount + amount})
+	err = qtx.UpdateBalance(context.Background(), db.UpdateBalanceParams{ID: id, Amount: balance.Amount + amount})
 	if err != nil {
 		return nil, err
 	}
+	err = tx.Commit()
 
-	balance, err = s.store.GetBalanceByID(context.Background(), id)
-
+	balance.Amount += amount
 	return &balance, err
 }
 
@@ -115,12 +127,20 @@ func (s *Service) Transfer(fromID uint64, toID uint64, amount int64) (*db.Balanc
 	return &balanceFrom, &balanceTo, nil
 }
 
+func (s *Service) GetLastTransferID() (uint64, error) {
+	return s.store.GetLastTransferID(context.Background())
+}
+
 func (s *Service) GetAllCurrencies() ([]db.Currency, error) {
 	return s.store.GetAllCurrencies(context.Background())
 }
 
 func (s *Service) GetAllEntries() ([]db.Entry, error) {
 	return s.store.GetAllEntries(context.Background())
+}
+
+func (s *Service) GetLastEntryID() (uint64, error) {
+	return s.store.GetLastEntryID(context.Background())
 }
 
 func (s *Service) GetAllTransfers() ([]db.Transfer, error) {

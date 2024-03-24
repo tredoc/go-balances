@@ -60,6 +60,19 @@ func (q *Queries) GetAllTransfers(ctx context.Context) ([]Transfer, error) {
 	return items, nil
 }
 
+const getLastTransferID = `-- name: GetLastTransferID :one
+SELECT id FROM transfers
+ORDER BY id DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLastTransferID(ctx context.Context) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, getLastTransferID)
+	var id uint64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getTransferByID = `-- name: GetTransferByID :one
 SELECT id, from_balance_id, to_balance_id, amount FROM transfers
 WHERE id = ?

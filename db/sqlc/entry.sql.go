@@ -93,3 +93,16 @@ func (q *Queries) GetEntryByID(ctx context.Context, id uint64) (Entry, error) {
 	err := row.Scan(&i.ID, &i.BalanceID, &i.Amount)
 	return i, err
 }
+
+const getLastEntryID = `-- name: GetLastEntryID :one
+SELECT id FROM entries
+ORDER BY id DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLastEntryID(ctx context.Context) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, getLastEntryID)
+	var id uint64
+	err := row.Scan(&id)
+	return id, err
+}

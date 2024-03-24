@@ -9,6 +9,7 @@ import (
 	"github.com/tredoc/go-balances/internal/store"
 	"log"
 	"os"
+	"sync"
 	"testing"
 )
 
@@ -46,54 +47,96 @@ func TestMain(m *testing.M) {
 }
 
 func TestStore(t *testing.T) {
-	assert.NotEqual(t, storage, &store.Store{})
+	t.Run("Test store creation", func(t *testing.T) {
+		assert.NotEqual(t, storage, &store.Store{})
+	})
 }
 
 func TestService(t *testing.T) {
-	assert.NotEqual(t, services, &service.Service{})
+	t.Run("Test service creation", func(t *testing.T) {
+		assert.NotEqual(t, services, &service.Service{})
+	})
 }
 
 func TestDeposit(t *testing.T) {
-	balance, err := services.GetBalanceById(1)
-	assert.Nil(t, err)
+	t.Run("Test single deposit", func(t *testing.T) {
+		balanceID := uint64(1)
+		balance, err := services.GetBalanceById(balanceID)
+		assert.Nil(t, err)
 
-	deposit := int64(100)
-	balanceUPD, err := services.Deposit(1, deposit)
-	assert.Nil(t, err)
-	assert.Equal(t, balanceUPD.Amount, balance.Amount+deposit)
+		amount := int64(100)
+		balanceUPD, err := services.Deposit(balanceID, amount)
+		assert.Nil(t, err)
+		assert.Equal(t, balanceUPD.Amount, balance.Amount+amount)
+	})
+
+	t.Run("Test concurrent deposit", func(t *testing.T) {
+		balanceID := uint64(4)
+		balance, err := services.GetBalanceById(balanceID)
+		assert.Nil(t, err)
+
+		lastEntryID, err := services.GetLastEntryID()
+		assert.Nil(t, err)
+
+		amount := int64(5)
+		times := 10
+
+		var wg sync.WaitGroup
+		for i := 0; i < times; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				_, err := services.Deposit(balanceID, amount)
+				assert.Nil(t, err)
+			}()
+		}
+		wg.Wait()
+
+		lastEntryIDNew, err := services.GetLastEntryID()
+		assert.Nil(t, err)
+		assert.Equal(t, lastEntryIDNew, lastEntryID+uint64(times))
+
+		balanceUPD, err := services.GetBalanceById(balanceID)
+		assert.Nil(t, err)
+		assert.Equal(t, balanceUPD.Amount, balance.Amount+amount*int64(times))
+	})
 }
 
 func TestWithdraw(t *testing.T) {
-	balance, err := services.GetBalanceById(1)
-	assert.Nil(t, err)
+	t.Run("Test single withdraw", func(t *testing.T) {
+		balance, err := services.GetBalanceById(1)
+		assert.Nil(t, err)
 
-	withdraw := int64(100)
-	balanceUPD, err := services.Withdraw(1, withdraw)
-	assert.Nil(t, err)
-	assert.Equal(t, balanceUPD.Amount, balance.Amount-withdraw)
+		withdraw := int64(100)
+		balanceUPD, err := services.Withdraw(1, withdraw)
+		assert.Nil(t, err)
+		assert.Equal(t, balanceUPD.Amount, balance.Amount-withdraw)
 
-	withdraw = int64(1<<63 - 1)
-	_, err = services.Withdraw(1, withdraw)
-	assert.Error(t, err)
+		withdraw = int64(1<<63 - 1)
+		_, err = services.Withdraw(1, withdraw)
+		assert.Error(t, err)
+	})
 }
 
 func TestTransfer(t *testing.T) {
-	fromID := uint64(2)
-	toID := uint64(10)
+	t.Run("Test single transfer", func(t *testing.T) {
+		fromID := uint64(2)
+		toID := uint64(10)
 
-	balanceFrom, err := services.GetBalanceById(fromID)
-	assert.Nil(t, err)
+		balanceFrom, err := services.GetBalanceById(fromID)
+		assert.Nil(t, err)
 
-	balanceTo, err := services.GetBalanceById(toID)
-	assert.Nil(t, err)
+		balanceTo, err := services.GetBalanceById(toID)
+		assert.Nil(t, err)
 
-	amount := int64(100)
-	balanceFromUPD, balanceToUPD, err := services.Transfer(fromID, toID, amount)
-	assert.Nil(t, err)
-	assert.Equal(t, balanceFromUPD.Amount, balanceFrom.Amount-amount)
-	assert.Equal(t, balanceToUPD.Amount, balanceTo.Amount+amount)
+		amount := int64(100)
+		balanceFromUPD, balanceToUPD, err := services.Transfer(fromID, toID, amount)
+		assert.Nil(t, err)
+		assert.Equal(t, balanceFromUPD.Amount, balanceFrom.Amount-amount)
+		assert.Equal(t, balanceToUPD.Amount, balanceTo.Amount+amount)
 
-	amount = int64(1<<63 - 1)
-	_, _, err = services.Transfer(fromID, toID, amount)
-	assert.Error(t, err)
+		amount = int64(1<<63 - 1)
+		_, _, err = services.Transfer(fromID, toID, amount)
+		assert.Error(t, err)
+	})
 }

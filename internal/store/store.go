@@ -6,13 +6,13 @@ import (
 )
 
 type Store struct {
-	conn *sql.DB
+	DB *sql.DB
 	*db.Queries
 }
 
 func New(conn *sql.DB) *Store {
 	return &Store{
-		conn:    conn,
+		DB:      conn,
 		Queries: db.New(conn),
 	}
 }

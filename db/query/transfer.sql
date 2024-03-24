@@ -16,3 +16,8 @@ WHERE from_balance_id = ? AND to_balance_id = ?;
 -- name: CreateTransfer :execlastid
 INSERT INTO transfers (from_balance_id, to_balance_id, amount)
 VALUES (?, ?, ?);
+
+-- name: GetLastTransferID :one
+SELECT id FROM transfers
+ORDER BY id DESC
+LIMIT 1;
