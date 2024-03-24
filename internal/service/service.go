@@ -97,7 +97,16 @@ func (s *Service) Transfer(fromID uint64, toID uint64, amount int64) (*db.Balanc
 		return nil, nil, errors.New("amount must be positive")
 	}
 
-	balanceFrom, err := s.store.GetBalanceByID(context.Background(), fromID)
+	tx, err := s.store.DB.Begin()
+	if err != nil {
+		return nil, nil, err
+	}
+	defer tx.Rollback()
+
+	qtx := s.store.WithTx(tx)
+
+	// using regular GetBalanceByID will cause deadlock
+	balanceFrom, err := qtx.GetBalanceByIDForUpdate(context.Background(), fromID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -106,34 +115,31 @@ func (s *Service) Transfer(fromID uint64, toID uint64, amount int64) (*db.Balanc
 		return nil, nil, errors.New("insufficient funds")
 	}
 
-	balanceTo, err := s.store.GetBalanceByID(context.Background(), toID)
+	// using regular GetBalanceByID will cause deadlock
+	balanceTo, err := qtx.GetBalanceByIDForUpdate(context.Background(), toID)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	_, err = s.store.CreateTransfer(context.Background(), db.CreateTransferParams{FromBalanceID: fromID, ToBalanceID: toID, Amount: amount})
-
-	err = s.store.UpdateBalance(context.Background(), db.UpdateBalanceParams{ID: fromID, Amount: balanceFrom.Amount - amount})
+	_, err = qtx.CreateTransfer(context.Background(), db.CreateTransferParams{FromBalanceID: fromID, ToBalanceID: toID, Amount: amount})
 	if err != nil {
 		return nil, nil, err
 	}
 
-	err = s.store.UpdateBalance(context.Background(), db.UpdateBalanceParams{ID: toID, Amount: balanceTo.Amount + amount})
+	err = qtx.UpdateBalance(context.Background(), db.UpdateBalanceParams{ID: fromID, Amount: balanceFrom.Amount - amount})
 	if err != nil {
 		return nil, nil, err
 	}
 
-	balanceFrom, err = s.store.GetBalanceByID(context.Background(), fromID)
+	err = qtx.UpdateBalance(context.Background(), db.UpdateBalanceParams{ID: toID, Amount: balanceTo.Amount + amount})
 	if err != nil {
 		return nil, nil, err
 	}
+	err = tx.Commit()
 
-	balanceTo, err = s.store.GetBalanceByID(context.Background(), toID)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return &balanceFrom, &balanceTo, nil
+	balanceFrom.Amount -= amount
+	balanceTo.Amount += amount
+	return &balanceFrom, &balanceTo, err
 }
 
 func (s *Service) GetLastTransferID() (uint64, error) {

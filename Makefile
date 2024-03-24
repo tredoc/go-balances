@@ -19,7 +19,7 @@ sqlc:
 
 test:
 	@echo "Running tests..."
-	go test -count=1 -v -cover ./...
+	@go test -count=1 -v ./cmd
 
 .PHONY: compose migrate/up migrate/down sqlc test
 .SILENT: compose migrate/up migrate/down sqlc test
