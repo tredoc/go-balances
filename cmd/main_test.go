@@ -103,18 +103,57 @@ func TestDeposit(t *testing.T) {
 }
 
 func TestWithdraw(t *testing.T) {
-	t.Run("Test single withdraw", func(t *testing.T) {
-		balance, err := services.GetBalanceById(1)
+	t.Run("Test single successful withdraw", func(t *testing.T) {
+		balanceID := uint64(1)
+		balance, err := services.GetBalanceById(balanceID)
 		assert.Nil(t, err)
 
-		withdraw := int64(100)
-		balanceUPD, err := services.Withdraw(1, withdraw)
+		amount := int64(100)
+		balanceUPD, err := services.Withdraw(balanceID, amount)
 		assert.Nil(t, err)
-		assert.Equal(t, balanceUPD.Amount, balance.Amount-withdraw)
+		assert.Equal(t, balanceUPD.Amount, balance.Amount-amount)
 
-		withdraw = int64(1<<63 - 1)
-		_, err = services.Withdraw(1, withdraw)
+		amount = int64(1<<63 - 1)
+		_, err = services.Withdraw(1, amount)
 		assert.Error(t, err)
+	})
+
+	t.Run("Test single overbalance withdraw", func(t *testing.T) {
+		balanceID := uint64(1)
+		amount := int64(1<<63 - 1)
+		_, err := services.Withdraw(balanceID, amount)
+		assert.Error(t, err)
+	})
+
+	t.Run("Test concurrent withdraw", func(t *testing.T) {
+		balanceID := uint64(6)
+		balance, err := services.GetBalanceById(balanceID)
+		assert.Nil(t, err)
+
+		lastEntryID, err := services.GetLastEntryID()
+		assert.Nil(t, err)
+
+		amount := int64(5)
+		times := 10
+
+		var wg sync.WaitGroup
+		for i := 0; i < times; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				_, err := services.Withdraw(balanceID, amount)
+				assert.Nil(t, err)
+			}()
+		}
+		wg.Wait()
+
+		lastEntryIDNew, err := services.GetLastEntryID()
+		assert.Nil(t, err)
+		assert.Equal(t, lastEntryIDNew, lastEntryID+uint64(times))
+
+		balanceUPD, err := services.GetBalanceById(balanceID)
+		assert.Nil(t, err)
+		assert.Equal(t, balanceUPD.Amount, balance.Amount-amount*int64(times))
 	})
 }
 
@@ -129,7 +168,7 @@ func TestTransfer(t *testing.T) {
 		balanceTo, err := services.GetBalanceById(toID)
 		assert.Nil(t, err)
 
-		amount := int64(100)
+		amount := int64(10)
 		balanceFromUPD, balanceToUPD, err := services.Transfer(fromID, toID, amount)
 		assert.Nil(t, err)
 		assert.Equal(t, balanceFromUPD.Amount, balanceFrom.Amount-amount)
