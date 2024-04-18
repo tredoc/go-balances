@@ -3,6 +3,8 @@
 ## Balance service with mysql and redis
 This app is created for testing purposes of production feature using go instead of one threaded lang.
 
+![screenshot](db/docs/balance.jpg)
+
 ### Main idea is to test updates in concurrent way and check if it's secure and correct
 * avoid lost updates and dirty reads
 * handle deadlocks
