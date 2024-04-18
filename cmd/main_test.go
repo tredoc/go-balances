@@ -157,7 +157,7 @@ func TestWithdraw(t *testing.T) {
 	})
 }
 
-func TestTransfer(t *testing.T) {
+func TestTransferOneWay(t *testing.T) {
 	t.Run("Test single transfer", func(t *testing.T) {
 		balanceFromID := uint64(2)
 		balanceToID := uint64(10)
@@ -225,5 +225,81 @@ func TestTransfer(t *testing.T) {
 		lastTransferIDNew, err := services.GetLastTransferID()
 		assert.Nil(t, err)
 		assert.Equal(t, lastTransferIDNew, lastTransferID+uint64(times))
+	})
+}
+
+func TestTransferContrary(t *testing.T) {
+	t.Run("Test single contrary transfer", func(t *testing.T) {
+		balanceFromID := uint64(6)
+		balanceToID := uint64(10)
+
+		balanceFrom, err := services.GetBalanceById(balanceFromID)
+		assert.Nil(t, err)
+
+		balanceTo, err := services.GetBalanceById(balanceToID)
+		assert.Nil(t, err)
+
+		amount := int64(10)
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			_, _, err := services.Transfer(balanceFromID, balanceToID, amount)
+			assert.Nil(t, err)
+		}()
+		go func() {
+			defer wg.Done()
+			_, _, err := services.Transfer(balanceToID, balanceFromID, amount)
+			assert.Nil(t, err)
+		}()
+		wg.Wait()
+
+		balanceFromUPD, err := services.GetBalanceById(balanceFromID)
+		assert.Nil(t, err)
+
+		balanceToUPD, err := services.GetBalanceById(balanceToID)
+		assert.Nil(t, err)
+
+		assert.Equal(t, balanceFromUPD.Amount, balanceFrom.Amount)
+		assert.Equal(t, balanceToUPD.Amount, balanceTo.Amount)
+
+	})
+
+	t.Run("Test concurrent contrary transfer", func(t *testing.T) {
+		balanceFromID := uint64(6)
+		balanceToID := uint64(10)
+
+		balanceFrom, err := services.GetBalanceById(balanceFromID)
+		assert.Nil(t, err)
+
+		balanceTo, err := services.GetBalanceById(balanceToID)
+		assert.Nil(t, err)
+
+		amount := int64(10)
+		var wg sync.WaitGroup
+		times := 4
+		wg.Add(2 * times)
+		for i := 0; i < times; i++ {
+			go func() {
+				defer wg.Done()
+				_, _, err := services.Transfer(balanceFromID, balanceToID, amount)
+				assert.Nil(t, err)
+			}()
+			go func() {
+				defer wg.Done()
+				_, _, err := services.Transfer(balanceToID, balanceFromID, amount)
+				assert.Nil(t, err)
+			}()
+		}
+		wg.Wait()
+
+		balanceFromUPD, err := services.GetBalanceById(balanceFromID)
+		assert.Nil(t, err)
+
+		balanceToUPD, err := services.GetBalanceById(balanceToID)
+		assert.Nil(t, err)
+
+		assert.Equal(t, balanceFromUPD.Amount, balanceFrom.Amount)
+		assert.Equal(t, balanceToUPD.Amount, balanceTo.Amount)
 	})
 }
